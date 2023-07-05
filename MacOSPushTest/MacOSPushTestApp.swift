@@ -9,11 +9,12 @@ import SwiftUI
 import Foundation
 import UserNotifications
 
-let currentUser = IterableUser(email: Tokens.email)
+let currentUserEmail = Tokens.email
 
 @main
 struct MacOSPushTestApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject var appState = AppState.shared
     
     var body: some Scene {
         WindowGroup {
@@ -50,6 +51,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSUserNotificationCenterDele
         let token = deviceToken.hexString
         print("Device Token: \(token)")
         
+        // Save the token to the user
+        AppState.shared.user.deviceToken = token
+        
         // Register user and device with Iterable
         let devicePaylod = createDevicePayload(with: token)
         Networker.task(with: devicePaylod, url: IterableUrls.register)
@@ -70,15 +74,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSUserNotificationCenterDele
     }
     
     private func createDevicePayload(with token: String) -> IterableRegisterDevicePayload {
-        IterableRegisterDevicePayload(email: currentUser.email, device: IterableDevice(token: token))
+        IterableRegisterDevicePayload(email: AppState.shared.user.email, device: IterableDevice(token: token))
     }
     
     private var pushPayload: IterablePushOpenPayload? {
-        guard let mostRecentPushPayload = UserDefaults.standard.data(forKey: IterableKey.pushPayload),
-              let iterableNotification = try? JSONDecoder().decode(IterableNotification.self, from: mostRecentPushPayload) else {
+        guard let mostRecentPushPayload = AppState.shared.user.mostRecentPushPayload else {
             return nil
         }
-        return IterablePushOpenPayload(email: currentUser.email, campaignId: iterableNotification.campaignId, templateId: iterableNotification.templateId, messageId: iterableNotification.messageId)
+        return IterablePushOpenPayload(email: AppState.shared.user.email, campaignId: mostRecentPushPayload.campaignId, templateId: mostRecentPushPayload.templateId, messageId: mostRecentPushPayload.messageId)
     }
     
     private func createAndSaveNotificationPayload(from userInfo: [String: Any]) {
@@ -89,7 +92,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSUserNotificationCenterDele
             return
         }
         let iterablePushNotification = IterableNotification(campaignId: campaignId, templateId: templateId, messageId: messageId)
-        UserDefaults.standard.set(try? JSONEncoder().encode(iterablePushNotification), forKey: IterableKey.pushPayload)
+        // Save most recent push payload
+        AppState.shared.user.mostRecentPushPayload = iterablePushNotification
     }
     
     private func setupNotifications() {

@@ -14,6 +14,17 @@ struct HomeView: View {
                 .imageScale(.large)
                 .foregroundColor(.accentColor)
             Text("Home")
+                .padding()
+            ButtonView(title: "Login") {
+                // Set email/id on the user object (e.g. AppState.shared.user.email = newEmail
+                // This will trigger the `didRegisterForRemoteNotifications` callback which will then trigger the Iterable registerDeviceToken API call
+                NSApplication.shared.registerForRemoteNotifications()
+            }
+            ButtonView(title: "Logout") {
+                // Disable the device within Iterable and set email/id to "" (e.g. AppState.shared.user.email = "")
+                let disableDevicePayload = IterableDisableDevicePayload(email: AppState.shared.user.email, token: AppState.shared.user.deviceToken)
+                Networker.task(with: disableDevicePayload, url: IterableUrls.disableDevice)
+            }
         }
         .padding()
     }
